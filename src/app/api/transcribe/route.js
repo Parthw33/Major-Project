@@ -1,23 +1,27 @@
-import {GetObjectCommand, S3Client} from "@aws-sdk/client-s3";
-import {GetTranscriptionJobCommand, StartTranscriptionJobCommand, TranscribeClient} from "@aws-sdk/client-transcribe";
+import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  GetTranscriptionJobCommand,
+  StartTranscriptionJobCommand,
+  TranscribeClient,
+} from "@aws-sdk/client-transcribe";
 
 function getClient() {
   return new TranscribeClient({
-    region: 'eu-north-1',
+    region: "eu-north-1",
     credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY,
-      secretAccessKey: process.env.AWS_SECRET_KEY,
+      accessKeyId: process.env.AWS_ACCESS_KEY1,
+      secretAccessKey: process.env.AWS_SECRET_KEY1,
     },
   });
 }
 function createTranscriptionCommand(filename) {
   return new StartTranscriptionJobCommand({
     TranscriptionJobName: filename,
-    OutputBucketName: process.env.BUCKET_NAME,
-    OutputKey: filename + '.transcription',
+    OutputBucketName: process.env.BUCKET_NAME1,
+    OutputKey: filename + ".transcription",
     IdentifyLanguage: true,
     Media: {
-      MediaFileUri: 's3://' + process.env.BUCKET_NAME + '/'+filename,
+      MediaFileUri: "s3://" + process.env.BUCKET_NAME1 + "/" + filename,
     },
   });
 }
@@ -44,24 +48,23 @@ async function getJob(filename) {
 async function streamToString(stream) {
   const chunks = [];
   return new Promise((resolve, reject) => {
-    stream.on('data', chunk => chunks.push(Buffer.from(chunk)));
-    stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-    stream.on('error', reject);
+    stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    stream.on("error", reject);
   });
 }
 
-
 async function getTranscriptionFile(filename) {
-  const transcriptionFile = filename + '.transcription';
+  const transcriptionFile = filename + ".transcription";
   const s3client = new S3Client({
-    region: 'eu-north-1',
+    region: "eu-north-1",
     credentials: {
       accessKeyId: process.env.AWS_ACCESS_KEY,
       secretAccessKey: process.env.AWS_SECRET_KEY,
     },
   });
   const getObjectCommand = new GetObjectCommand({
-    Bucket: process.env.BUCKET_NAME,
+    Bucket: process.env.BUCKET_NAME1,
     Key: transcriptionFile,
   });
   let transcriptionFileResponse = null;
@@ -69,9 +72,7 @@ async function getTranscriptionFile(filename) {
     transcriptionFileResponse = await s3client.send(getObjectCommand);
   } catch (e) {}
   if (transcriptionFileResponse) {
-    return JSON.parse(
-      await streamToString(transcriptionFileResponse.Body)
-    );
+    return JSON.parse(await streamToString(transcriptionFileResponse.Body));
   }
   return null;
 }
@@ -79,13 +80,13 @@ async function getTranscriptionFile(filename) {
 export async function GET(req) {
   const url = new URL(req.url);
   const searchParams = new URLSearchParams(url.searchParams);
-  const filename = searchParams.get('filename');
+  const filename = searchParams.get("filename");
 
   // find ready transcription
   const transcription = await getTranscriptionFile(filename);
   if (transcription) {
     return Response.json({
-      status:'COMPLETED',
+      status: "COMPLETED",
       transcription,
     });
   }
@@ -96,7 +97,7 @@ export async function GET(req) {
   if (existingJob) {
     return Response.json({
       status: existingJob.TranscriptionJob.TranscriptionJobStatus,
-    })
+    });
   }
 
   // creating new transcription job
